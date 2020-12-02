@@ -1,6 +1,8 @@
 package main
 
-import "testing"
+import (
+	"testing"
+)
 
 func Test_isValidPassword(t *testing.T) {
 	type args struct {
@@ -19,6 +21,28 @@ func Test_isValidPassword(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := isValidPassword(tt.args.input); got != tt.want {
 				t.Errorf("isValidPassword() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_isValidPasswordTwo(t *testing.T) {
+	type args struct {
+		input string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{"example 1", args{"1-3 a: abcde"}, true},
+		{"example 2", args{"1-3 b: cdefg"}, false},
+		{"example 3", args{"2-9 c: ccccccccc"}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isValidPasswordTwo(tt.args.input); got != tt.want {
+				t.Errorf("isValidPasswordTwo() = %v, want %v", got, tt.want)
 			}
 		})
 	}
