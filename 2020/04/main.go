@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -14,54 +15,89 @@ type height struct {
 	unit  string
 }
 
-type passport struct {
+type idCard struct {
 	byr int
 	iyr int
 	eyr int
 	hgt height
 	ecl string
 	hcl string
-	pid int
+	pid string
 	cid int
+}
+
+type idCardCheck struct {
+	validPassport      bool
+	validNorthPoleCard bool
+	byr                bool
+	iyr                bool
+	eyr                bool
+	hgt                bool
+	ecl                bool
+	hcl                bool
+	pid                bool
+	cid                bool
 }
 
 func main() {
 	var validPassports int
-	currentPassportData := make([]string, 0, 8)
+	currentIDData := make([]string, 0, 8)
 	scanner := bufio.NewScanner(openStdinOrFile())
 
 	for scanner.Scan() {
-		currentLine := scanner.Text()
-		if len(currentLine) > 0 {
-			currentPassportData = append(currentPassportData, scanner.Text())
-		} else {
-			currentPassport := parsePassport(strings.Join(currentPassportData, " "))
-			if isValid(currentPassport, true) {
+		line := scanner.Text()
+		if len(line) > 0 {
+			currentIDData = append(currentIDData, line)
+			continue
+		} else if len(currentIDData) > 0 {
+			idDataLine := strings.Join(currentIDData, " ")
+			idCard := parseIDCard(idDataLine)
+
+			if isValid(idCard).validNorthPoleCard {
+				fmt.Printf("Valid ID Card: %v\n%v\n%v\n", idDataLine, idCard.toString(), isValid(idCard).toString())
 				validPassports++
 			}
-			currentPassportData = make([]string, 0, 8)
+			currentIDData = make([]string, 0, 8)
 		}
 	}
 
 	fmt.Printf("Found %v valid passports\n", validPassports)
 }
 
-func isValid(pp passport, allowNPC bool) bool {
-	return pp.byr > 0 &&
-		pp.iyr > 0 &&
-		pp.eyr > 0 &&
-		pp.hgt.value > 0 &&
-		len(pp.ecl) > 0 &&
-		len(pp.hcl) > 0 &&
-		pp.pid > 0 &&
-		(pp.cid > 0 || allowNPC)
+func isValid(pp idCard) idCardCheck {
+	validEyeColour := regexp.MustCompile("amb|blu|brn|gry|grn|hzl|oth")
+	validHairColour := regexp.MustCompile("#[0-9a-f]{6}")
+	validPassportNumber := regexp.MustCompile("[0-9]{9}")
+	check := idCardCheck{
+		false,
+		false,
+		pp.byr >= 1920 && pp.byr <= 2002,
+		pp.iyr >= 2010 && pp.iyr <= 2020,
+		pp.eyr >= 2020 && pp.eyr <= 2030,
+		(pp.hgt.unit == "in" && pp.hgt.value >= 59 && pp.hgt.value <= 76) ||
+			(pp.hgt.unit == "cm" && pp.hgt.value >= 150 && pp.hgt.value <= 193),
+		validEyeColour.MatchString(pp.ecl),
+		validHairColour.MatchString(pp.hcl),
+		validPassportNumber.MatchString(pp.pid),
+		pp.cid > 0,
+	}
+	check.validNorthPoleCard = check.byr &&
+		check.iyr &&
+		check.eyr &&
+		check.hgt &&
+		check.ecl &&
+		check.hcl &&
+		check.pid
+	check.validPassport = check.validNorthPoleCard && check.cid
+
+	return check
 }
 
-func parsePassport(input string) passport {
-	var parsed passport
-	ppFields := strings.Fields(input)
+func parseIDCard(input string) idCard {
+	var parsed idCard
+	idFields := strings.Fields(input)
 
-	for _, field := range ppFields {
+	for _, field := range idFields {
 		var err error
 		data := strings.Split(field, ":")
 		fieldName := data[0]
@@ -70,43 +106,37 @@ func parsePassport(input string) passport {
 		case "byr":
 			parsed.byr, err = strconv.Atoi(fieldValue)
 			if err != nil {
-				fmt.Println("Invalid passport, returning empty.")
-				return passport{}
+				parsed.byr = 0
 			}
 		case "iyr":
 			parsed.iyr, err = strconv.Atoi(fieldValue)
 			if err != nil {
-				fmt.Println("Invalid passport, returning empty.")
-				return passport{}
+				parsed.iyr = 0
 			}
 		case "eyr":
 			parsed.eyr, err = strconv.Atoi(fieldValue)
 			if err != nil {
-				fmt.Println("Invalid passport, returning empty.")
-				return passport{}
+				parsed.eyr = 0
 			}
 		case "ecl":
 			parsed.ecl = fieldValue
 		case "hcl":
 			parsed.hcl = fieldValue
 		case "pid":
-			parsed.pid, err = strconv.Atoi(fieldValue)
-			if err != nil {
-				fmt.Println("Invalid passport, returning empty.")
-				return passport{}
-			}
+			parsed.pid = fieldValue
 		case "cid":
 			parsed.cid, err = strconv.Atoi(fieldValue)
 			if err != nil {
-				fmt.Println("Invalid passport, returning empty.")
-				return passport{}
+				parsed.cid = 0
 			}
 		case "hgt":
-			parsed.hgt.unit = fieldValue[len(fieldValue)-2:]
-			parsed.hgt.value, err = strconv.Atoi(fieldValue[:len(fieldValue)-2])
+			heightValue, err := strconv.Atoi(fieldValue[:len(fieldValue)-2])
 			if err != nil {
-				fmt.Println("Invalid passport, returning empty.")
-				return passport{}
+				parsed.cid = 0
+			}
+			parsed.hgt = height{
+				heightValue,
+				fieldValue[len(fieldValue)-2:],
 			}
 		default:
 			fmt.Printf("Found unknown field %v\n", fieldName)
@@ -114,6 +144,33 @@ func parsePassport(input string) passport {
 	}
 
 	return parsed
+}
+
+func (id idCardCheck) toString() string {
+	return fmt.Sprintf(`
+	isValidPassport: %v,
+	isValidNorthPoleCard: %v,
+	hasValidBirthYear: %v,
+	hasValidIssueYear: %v,
+	hasValidExpiryYear: %v,
+	hasValidHeight: %v,
+	hasValidEyeColour: %v,
+	hasValidHairColour: %v,
+	hasValidPassportId: %v,
+	hasValidCountryId: %v
+	`, id.validPassport, id.validNorthPoleCard, id.byr, id.iyr, id.eyr, id.hgt, id.ecl, id.hcl, id.pid, id.cid)
+}
+
+func (id idCard) toString() string {
+	return fmt.Sprintf(`
+	Birth Year: %v,
+	Issue Year: %v,
+	Expiry Year: %v,
+	Height: %v,
+	Eye Colour: %v,
+	Hair Colour: %v,
+	Passport ID: %v,
+	Country Id: %v`, id.byr, id.iyr, id.eyr, id.hgt, id.ecl, id.hcl, id.pid, id.cid)
 }
 
 func openStdinOrFile() io.Reader {
