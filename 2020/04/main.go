@@ -50,24 +50,32 @@ func main() {
 			currentIDData = append(currentIDData, line)
 			continue
 		} else if len(currentIDData) > 0 {
-			idDataLine := strings.Join(currentIDData, " ")
-			idCard := parseIDCard(idDataLine)
-
-			if isValid(idCard).validNorthPoleCard {
-				fmt.Printf("Valid ID Card: %v\n%v\n%v\n", idDataLine, idCard.toString(), isValid(idCard).toString())
+			if testChunk(currentIDData, true) {
 				validPassports++
 			}
-			currentIDData = make([]string, 0, 8)
+			currentIDData = currentIDData[:0]
 		}
+	}
+	if testChunk(currentIDData, true) {
+		validPassports++
 	}
 
 	fmt.Printf("Found %v valid passports\n", validPassports)
 }
 
+func testChunk(chunk []string, allowIDCard bool) bool {
+	idData := strings.Join(chunk, " ")
+	idCard := parseIDCard(idData)
+
+	result := isValid(idCard)
+
+	return result.validPassport || allowIDCard && result.validNorthPoleCard
+}
+
 func isValid(pp idCard) idCardCheck {
-	validEyeColour := regexp.MustCompile("amb|blu|brn|gry|grn|hzl|oth")
-	validHairColour := regexp.MustCompile("#[0-9a-f]{6}")
-	validPassportNumber := regexp.MustCompile("[0-9]{9}")
+	validEyeColour := regexp.MustCompile("^(amb|blu|brn|gry|grn|hzl|oth)$")
+	validHairColour := regexp.MustCompile("^#[0-9a-f]{6}$")
+	validPassportNumber := regexp.MustCompile("^[0-9]{9}$")
 	check := idCardCheck{
 		false,
 		false,
