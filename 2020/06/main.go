@@ -21,37 +21,31 @@ func main() {
 			currentChunk = append(currentChunk, line)
 			continue
 		} else {
-			total += processChunk(currentChunk)
-			totalP2 += processChunkPart2(currentChunk)
+			total += processPaxGroup(currentChunk, false)
+			totalP2 += processPaxGroup(currentChunk, true)
 			currentChunk = currentChunk[:0]
 		}
 	}
-	total += processChunk(currentChunk)
+	total += processPaxGroup(currentChunk, false)
 
-	totalP2 += processChunkPart2(currentChunk)
+	totalP2 += processPaxGroup(currentChunk, true)
 
 	fmt.Printf("The total is %v\n", total)
 	fmt.Printf("The total is %v\n", totalP2)
 }
 
-func processChunk(chunk []string) int {
-	yesAnswers := make(map[rune]bool)
-	for _, s := range chunk {
-		for _, c := range s {
-			yesAnswers[c] = true
-		}
-	}
-	return len(yesAnswers)
-}
-
-func processChunkPart2(chunk []string) int {
+func processPaxGroup(chunk []string, countGroupAnswersOnly bool) int {
 	yesAnswers := make(map[rune]int)
 	for _, s := range chunk {
 		for _, c := range s {
 			yesAnswers[c]++
 		}
 	}
-	return mapValueIsTargetValue(yesAnswers, len(chunk))
+	if countGroupAnswersOnly {
+		return mapValueIsTargetValue(yesAnswers, len(chunk))
+	} else {
+		return len(yesAnswers)
+	}
 }
 
 func mapValueIsTargetValue(data map[rune]int, targetValue int) int {
