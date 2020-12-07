@@ -54,7 +54,8 @@ func main() {
 			currentBag.contents = append(currentBag.contents, contents{count, targetBag})
 		}
 	}
-	fmt.Printf("%v", findBagNumber(allBags, "shiny gold"))
+	fmt.Printf("%v\n", findBagNumber(allBags, "shiny gold"))
+	fmt.Printf("%v\n", allBags["shiny gold"].countSubBags())
 }
 
 func findBagNumber(allBags map[string]*bag, targetBagColour string) int {
@@ -70,6 +71,15 @@ func findBagNumber(allBags map[string]*bag, targetBagColour string) int {
 		}
 	}
 	return count
+}
+
+func (b bag) countSubBags() int {
+	var subbags int
+	for _, content := range b.contents {
+		childSubBags := content.bag.countSubBags()
+		subbags += content.count * (childSubBags + 1)
+	}
+	return subbags
 }
 
 func (b bag) contains(target *bag, recurse bool) bool {
