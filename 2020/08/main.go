@@ -18,13 +18,15 @@ type command struct {
 
 type program []*command
 
-type state struct {
-	pc  int
-	acc int
+type State struct {
+	pc        int
+	acc       int
+	executed  map[int]bool
+	changedPC int
 }
 
 type runtime struct {
-	state   *state
+	state   *State
 	program program
 }
 
@@ -39,46 +41,94 @@ func main() {
 
 	runtime := createRuntime(program)
 
-	for {
-		runtime.exec(true)
-	}
+	endState := runtime.exec(State{0, 0, make(map[int]bool), -1})
+
+	endState.print()
+
 }
 
 func createRuntime(program program) runtime {
-	var state state
+	var state State
 	return runtime{&state, program}
 }
 
-func (r runtime) exec(haltOnLoop bool) {
-	state := r.state
+func (r runtime) exec(state State) State {
+	if state.pc < -1 {
+		state.print()
+		return State{-2, state.acc, state.executed, state.changedPC}
+	}
+	var nextPC int
 	if state.pc >= len(r.program) {
-		halt()
+		fmt.Println("exited successfully")
+		state.print()
+		os.Exit(1)
+		return State{-1, state.acc, state.executed, state.changedPC}
 	}
 	cmd := r.program[state.pc]
-	if haltOnLoop && cmd.executed {
-		r.halt()
+	if _, exists := state.executed[state.pc]; exists {
+		fmt.Println("LOOP DETECTED: returning current state")
+		return State{-2, state.acc, state.executed, state.changedPC}
+	} else {
+		state.executed[state.pc] = true
 	}
+	executed := copyMap(state.executed)
 	switch cmd.mnemonic {
 	case "acc":
 		state.acc += cmd.operand
 		state.pc++
 	case "jmp":
+		if state.changedPC < 0 {
+			nextPC = state.pc + 1
+			r.exec(State{nextPC, state.acc, executed, nextPC})
+		}
 		state.pc += cmd.operand
 	case "nop":
+		if state.changedPC < 0 {
+			nextPC = state.pc + cmd.operand
+			r.exec(State{nextPC, state.acc, executed, nextPC})
+		}
 		state.pc++
 	default:
 		log.Fatalf("Unknown command %v\n", cmd.mnemonic)
 	}
 	cmd.executed = true
+	return r.exec(state)
+}
+
+func (c *command) flipMnemonic() {
+	if c.mnemonic == "jmp" {
+		c.mnemonic = "nop"
+	} else {
+		c.mnemonic = "jmp"
+	}
+}
+
+func (r runtime) cmdCausesLoop(cmd command) bool {
+	var nextpc int
+	state := r.state
+	if state.pc > len(r.program) {
+		return false
+	}
+	switch cmd.mnemonic {
+	case "acc":
+		return false
+	case "jmp":
+		nextpc = state.pc + cmd.operand
+	case "nop":
+		nextpc = state.pc + 1
+	default:
+		log.Fatalf("Unknown command %v\n", cmd.mnemonic)
+	}
+	return r.program[nextpc].executed
 }
 
 func (r runtime) halt() {
 	r.state.print()
-	os.Exit(0)
+	//os.Exit(0)
 }
 
-func (s state) print() {
-	fmt.Printf("pc: %v acc: %v", s.pc, s.acc)
+func (s State) print() {
+	fmt.Printf("pc: %v acc: %v changed: %v\n", s.pc, s.acc, s.changedPC)
 }
 
 func parseLine(line string) *command {
@@ -108,4 +158,13 @@ func openStdinOrFile() io.Reader {
 		}
 	}
 	return r
+}
+
+func copyMap(m map[int]bool) map[int]bool {
+	cp := make(map[int]bool)
+	for k, v := range m {
+		cp[k] = v
+	}
+
+	return cp
 }
