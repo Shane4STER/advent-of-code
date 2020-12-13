@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/deanveloper/modmath/v1/bigmod"
 )
 
 func main() {
 	scanner := bufio.NewScanner(openStdinOrFile())
-	var minTime, bestRoute int
+	var minTime, bestRoute, activeRoutes int
 
 	scanner.Scan()
 	target, err := strconv.Atoi(scanner.Text())
@@ -26,6 +29,7 @@ func main() {
 		if route < 0 {
 			continue
 		}
+		activeRoutes++
 		waitingTime := (((target / route) + 1) * route) - target
 		if waitingTime < minTime || minTime == 0 {
 			minTime = waitingTime
@@ -33,8 +37,24 @@ func main() {
 		}
 	}
 	part1 := minTime * bestRoute
-	fmt.Println(part1)
+	fmt.Printf("Part 1: %v\n", part1)
 
+	var pIndex int
+	problem := make([]bigmod.CrtEntry, activeRoutes)
+
+	for i, route := range schedule {
+		if route < 0 {
+			continue
+		}
+
+		problem[pIndex] = bigmod.CrtEntry{
+			big.NewInt(int64(((-i) % route) + route)),
+			big.NewInt(int64(route)),
+		}
+		pIndex++
+	}
+	solution := bigmod.SolveCrtMany(problem)
+	fmt.Printf("Part 2: %v\n", solution)
 }
 
 func parseBuses(schedule string) []int {
