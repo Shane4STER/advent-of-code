@@ -12,8 +12,9 @@ import (
 )
 
 type Position struct {
-	x int
-	d int
+	x   int
+	d   int
+	aim int
 }
 
 type Direction int
@@ -74,11 +75,12 @@ func stringToCommand(str string) (Command, error) {
 
 func (pos *Position) move(cmd Command) {
 	if cmd.direction == UP {
-		pos.d -= cmd.scalar
+		pos.aim -= cmd.scalar
 	} else if cmd.direction == DOWN {
-		pos.d += cmd.scalar
+		pos.aim += cmd.scalar
 	} else if cmd.direction == FORWARD {
 		pos.x += cmd.scalar
+		pos.d += (cmd.scalar * pos.aim)
 	}
 }
 
