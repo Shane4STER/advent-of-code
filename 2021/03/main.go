@@ -13,14 +13,16 @@ func main() {
 	scanner := bufio.NewScanner(openStdinOrFile())
 
 	var freq0, freq1 []int
+	var data []string
 	var initialised bool
 	var bitWidth int
 	var gammaStr, epsilonStr string
 
 	for scanner.Scan() {
 		line := scanner.Text()
+		data = append(data, line)
 		if !initialised {
-			bitWidth = len(scanner.Text())
+			bitWidth = len(line)
 			freq0 = make([]int, bitWidth)
 			freq1 = make([]int, bitWidth)
 			initialised = true
@@ -58,6 +60,67 @@ func main() {
 	fmt.Printf("The Gamma Rate is %v = %v\n", gammaStr, gammaRate)
 	fmt.Printf("The Epsilon Rate is %v = %v\n", epsilonStr, epsilonRate)
 	fmt.Printf("The Power Consumption is %v\n", epsilonRate*gammaRate)
+
+	oxyStr := filterPrefix(true, data)
+	co2Str := filterPrefix(false, data)
+
+	oxyRate, err := strconv.ParseUint(oxyStr, 2, bitWidth)
+	if err != nil {
+		log.Fatal(err)
+	}
+	co2Rate, err := strconv.ParseUint(co2Str, 2, bitWidth)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("The Oxygen Generator Rating is %v = %v\n", oxyStr, oxyRate)
+	fmt.Printf("The CO2 Scrubber Rating is %v = %v\n", co2Str, co2Rate)
+	fmt.Printf("The Life Support Rating is %v\n", oxyRate*co2Rate)
+}
+
+func filterPrefix(useFrequent bool, haystack []string) string {
+	var diff int
+	var zeroStack []string
+	var oneStack []string
+
+	for _, s := range haystack {
+		if s[0] == '0' {
+			zeroStack = append(zeroStack, s[1:])
+			diff++
+		} else {
+			oneStack = append(oneStack, s[1:])
+			diff--
+		}
+	}
+
+	if useFrequent {
+		if diff > 0 {
+			if len(zeroStack) > 1 {
+				return "0" + filterPrefix(useFrequent, zeroStack)
+			} else {
+				return "0" + zeroStack[0]
+			}
+		} else {
+			if len(oneStack) > 1 {
+				return "1" + filterPrefix(useFrequent, oneStack)
+			} else {
+				return "1" + oneStack[0]
+			}
+		}
+	} else {
+		if diff <= 0 {
+			if len(zeroStack) > 1 {
+				return "0" + filterPrefix(useFrequent, zeroStack)
+			} else {
+				return "0" + zeroStack[0]
+			}
+		} else {
+			if len(oneStack) > 1 {
+				return "1" + filterPrefix(useFrequent, oneStack)
+			} else {
+				return "1" + oneStack[0]
+			}
+		}
+	}
 }
 
 func openStdinOrFile() io.Reader {
